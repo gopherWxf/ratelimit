@@ -11,7 +11,7 @@ func test(ctx *gin.Context) {
 }
 func main() {
 	r := gin.New()
-	r.GET("/", src.Limiter(10)(test))
+	r.GET("/", src.Limiter(3)(test))
 
 	fmt.Println("http://127.0.0.1:80")
 	r.Run(":80")
