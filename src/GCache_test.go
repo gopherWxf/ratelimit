@@ -13,4 +13,7 @@ func TestNewGCache(t *testing.T) {
 	cache.Get("name")
 	cache.Set("age", 19)
 	cache.Print()
+
+	cache.RemoveOldest()
+	cache.Print()
 }
