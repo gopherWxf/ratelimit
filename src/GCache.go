@@ -7,14 +7,20 @@ import (
 	"time"
 )
 
-type cacheDate struct {
+type cacheData struct {
 	key      string
 	val      interface{}
 	expireAt time.Time
 }
 
-func newCacheDate(key string, val interface{}) *cacheDate {
-	return &cacheDate{key: key, val: val}
+func newCacheDate(key string, val interface{}, expireAt time.Time) *cacheData {
+	return &cacheData{key: key, val: val, expireAt: expireAt}
+}
+func (this *cacheData) IsExpire() bool {
+	if time.Now().After(this.expireAt) {
+		return true
+	}
+	return false
 }
 
 type GCacheOption func(g *GCache)
@@ -43,21 +49,36 @@ type GCache struct {
 func NewGCache(opt ...GCacheOption) *GCache {
 	cache := &GCache{elist: list.New(), edata: make(map[string]*list.Element), maxsize: 0}
 	GCacheOptions(opt).Apply(cache)
+	cache.clear()
 	return cache
 }
 func (this *GCache) Get(key string) interface{} {
 	this.lock.Lock()
 	defer this.lock.Unlock()
 	if v, ok := this.edata[key]; ok {
+		//过期了
+		if v.Value.(*cacheData).IsExpire() {
+			return nil
+		}
 		this.elist.MoveToFront(v)
-		return v.Value.(*cacheDate).val
+		return v.Value.(*cacheData).val
 	}
 	return nil
 }
-func (this *GCache) Set(key string, newVal interface{}) {
+
+// 不过期的时间
+const NotExpireTTL = time.Hour * 24 * 356
+
+func (this *GCache) Set(key string, newVal interface{}, TTL time.Duration) {
 	this.lock.Lock()
 	defer this.lock.Unlock()
-	newCache := newCacheDate(key, newVal)
+	var setExpire time.Time
+	if TTL == 0 {
+		setExpire = time.Now().Add(NotExpireTTL)
+	} else {
+		setExpire = time.Now().Add(TTL)
+	}
+	newCache := newCacheDate(key, newVal, setExpire)
 	if v, ok := this.edata[key]; ok {
 		v.Value = newCache
 		this.elist.MoveToFront(v)
@@ -71,18 +92,12 @@ func (this *GCache) Set(key string, newVal interface{}) {
 	}
 }
 func (this *GCache) Print() {
-	ele := this.elist.Front()
-	if ele == nil {
-		return
+	for e := this.elist.Front(); e != nil; e = e.Next() {
+		fmt.Printf("[key:%v val:%v] ",
+			e.Value.(*cacheData).key,
+			e.Value.(*cacheData).val)
 	}
-	for {
-		fmt.Println(ele.Value.(*cacheDate).val)
-		ele = ele.Next()
-		if ele == nil {
-			fmt.Println("------")
-			break
-		}
-	}
+	fmt.Printf("\n")
 }
 func (this *GCache) removeOldest() {
 	back := this.elist.Back()
@@ -92,7 +107,28 @@ func (this *GCache) removeOldest() {
 	this.removeItem(back)
 }
 func (this *GCache) removeItem(ele *list.Element) {
-	key := ele.Value.(*cacheDate).key
+	key := ele.Value.(*cacheData).key
 	delete(this.edata, key)
 	this.elist.Remove(ele)
+}
+func (this *GCache) removeExpired() {
+	this.lock.Lock()
+	defer this.lock.Unlock()
+	for _, v := range this.edata {
+		temp := v.Value.(*cacheData)
+		if temp.IsExpire() {
+			this.removeItem(v)
+		}
+	}
+}
+func (this *GCache) clear() {
+	go func() {
+		for {
+			this.removeExpired()
+			time.Sleep(time.Second * 1)
+		}
+	}()
+}
+func (this *GCache) len() int {
+	return len(this.edata)
 }
