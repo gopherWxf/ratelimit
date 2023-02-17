@@ -17,6 +17,22 @@ func newCacheDate(key string, val interface{}) *cacheDate {
 	return &cacheDate{key: key, val: val}
 }
 
+type GCacheOption func(g *GCache)
+type GCacheOptions []GCacheOption
+
+func (this GCacheOptions) Apply(g *GCache) {
+	for _, fn := range this {
+		fn(g)
+	}
+}
+func WithMaxSize(size int) GCacheOption {
+	return func(g *GCache) {
+		if size > 0 {
+			g.maxsize = size
+		}
+	}
+}
+
 type GCache struct {
 	elist   *list.List //LRU
 	edata   map[string]*list.Element
@@ -24,8 +40,10 @@ type GCache struct {
 	maxsize int
 }
 
-func NewGCache() *GCache {
-	return &GCache{elist: list.New(), edata: make(map[string]*list.Element), maxsize: 100}
+func NewGCache(opt ...GCacheOption) *GCache {
+	cache := &GCache{elist: list.New(), edata: make(map[string]*list.Element), maxsize: 0}
+	GCacheOptions(opt).Apply(cache)
+	return cache
 }
 func (this *GCache) Get(key string) interface{} {
 	this.lock.Lock()
@@ -46,6 +64,10 @@ func (this *GCache) Set(key string, newVal interface{}) {
 		return
 	} else {
 		this.edata[key] = this.elist.PushFront(newCache)
+		//判断长度是否溢出,溢出则淘汰末位缓存
+		if this.maxsize > 0 && len(this.edata) > this.maxsize {
+			this.removeOldest()
+		}
 	}
 }
 func (this *GCache) Print() {
@@ -62,9 +84,7 @@ func (this *GCache) Print() {
 		}
 	}
 }
-func (this *GCache) RemoveOldest() {
-	this.lock.Lock()
-	defer this.lock.Unlock()
+func (this *GCache) removeOldest() {
 	back := this.elist.Back()
 	if back == nil {
 		return

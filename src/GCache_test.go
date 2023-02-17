@@ -3,7 +3,7 @@ package src
 import "testing"
 
 func TestNewGCache(t *testing.T) {
-	cache := NewGCache()
+	cache := NewGCache(WithMaxSize(3))
 	//LRU
 	cache.Set("name", "wxf")
 	cache.Set("age", 20)
@@ -13,7 +13,6 @@ func TestNewGCache(t *testing.T) {
 	cache.Get("name")
 	cache.Set("age", 19)
 	cache.Print()
-
-	cache.RemoveOldest()
+	cache.Set("abc", 666)
 	cache.Print()
 }
