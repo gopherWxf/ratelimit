@@ -61,6 +61,7 @@ func (this *GCache) Get(key string) interface{} {
 			return nil
 		}
 		this.elist.MoveToFront(v)
+		v.Value.(*cacheData).expireAt = v.Value.(*cacheData).expireAt.Add(time.Second * 3)
 		return v.Value.(*cacheData).val
 	}
 	return nil

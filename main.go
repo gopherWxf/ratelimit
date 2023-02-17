@@ -21,7 +21,6 @@ func main() {
 	//IP限流
 	r.GET("/ip", src.IPLimiter(3, 1)(test))
 
-	testCache()
 	fmt.Println("http://127.0.0.1:80")
 	r.Run(":80")
 }
