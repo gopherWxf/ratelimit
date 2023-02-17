@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"ratelimit/src"
 )
@@ -16,5 +17,7 @@ func main() {
 			ctx.AbortWithStatusJSON(400, gin.H{"message": "rate limit"})
 		}
 	})
+
+	fmt.Println("http://127.0.0.1:80")
 	r.Run(":80")
 }
