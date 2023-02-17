@@ -17,6 +17,8 @@ func main() {
 	r.GET("/global", src.Limiter(3, 1)(test))
 	//组合限流
 	r.GET("/pg", src.ParamLimiter(3, 1, "name")(src.Limiter(1, 1)(test)))
+	//IP限流
+	r.GET("/ip", src.IPLimiter(3, 1)(test))
 
 	fmt.Println("http://127.0.0.1:80")
 	r.Run(":80")
